@@ -2,6 +2,9 @@ services:
 
   apache-php:
     image: customized-apache-httpd-plus-php:1.0
+    build:
+      context: ./images/apache-httpd-plus-php
+      dockerfile: Dockerfile
     hostname: apache-2.4-php-8.2
     container_name: apache-2.4-php-8.2
     restart: always
@@ -22,6 +25,9 @@ services:
 
   mysql-8.0.40-debian:
     image: customized-mysql:1.0
+    build:
+      context: ./images/mysql
+      dockerfile: Dockerfile
     hostname: mysql-8.0.40-debian
     container_name: mysql-8.0.40-debian
     restart: always
