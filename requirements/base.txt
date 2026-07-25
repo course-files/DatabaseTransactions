@@ -1,0 +1,4 @@
+# requirements/base.txt
+sqlalchemy
+psycopg2-binary
+python-dotenv

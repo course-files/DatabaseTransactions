@@ -1,0 +1,6 @@
+# requirements/base.txt
+confluent-kafka
+sqlalchemy
+psycopg2-binary
+clickhouse-connect
+python-dotenv
