@@ -1198,7 +1198,7 @@ In addition to the completed practical steps above:
 
 (ii) Write pseudocode that can be used to understand the general database transaction.
 
-(iii) Suppose the sales department accepts payments in installments but needs a report showing which orders have not been paid in full, and the balance remaining. This is so that it can follow up with clients who still owe the business money. Write an SQL query that can be used to generate this report.
+(iii) Suppose the sales department accepts payments in installments but needs a report showing which orders have not been paid in full, and the balance remaining. This is so that it can follow up with clients who still owe the business money. Write an SQL query that can be used to generate this report. *Hint:* Make use of both an INNER JOIN and a LEFT OUTER JOIN in your query.
 
 Submit your answer according to the submission instructions.
 
