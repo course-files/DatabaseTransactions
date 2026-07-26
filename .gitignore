@@ -170,5 +170,5 @@ cython_debug/
 /container-volumes/postgresql/var-lib-postgresql-data
 /container-volumes/postgresql/var-log-postgresql
 /sandbox
-/lab_submission_*
+/lab_submission_ANSWERS
 .env
