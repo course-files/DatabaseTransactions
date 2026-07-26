@@ -1,6 +1,0 @@
-# requirements/dev.txt
--r https://raw.githubusercontent.com/course-files/Kafka/refs/heads/main/requirements/base.txt
-
-pipreqs
-faker
-pytest

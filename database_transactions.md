@@ -12,6 +12,7 @@ By the end of this lab, you will be able to:
 6. **Commit** a transaction
 7. **Terminate** a stuck or long-running transaction/session
 8. **Embed** a database transaction written in SQL inside Python
+9. **Edit** the PostgreSQL configuration file to support database transactions using the following parameters: `default_transaction_isolation`,`statement_timeout`, and `idle_in_transaction_session_timeout`.
 
 ## Required Software
 
@@ -1091,111 +1092,101 @@ SELECT 1; -- this should succeed, confirming the session is still alive
 
 ---
 
-## Step 19: Embedding the transaction in a Python backend
+## Step 27: Embedding the transaction in a Python backend
 
-The same transaction logic can be embedded in an application using `psycopg2`. This example was executed against the seed dataset and reproduces the same result as Step 17.
+Refer to the files in the `0_admin_instructions` folder followed by the [pos_transaction_demo.py](pos_transaction_demo.py) file for a demonstration of how to embed the transaction in a Python backend. The code is annotated with comments to explain most of the steps.
 
-```python
-import psycopg2
+---
 
-conn = psycopg2.connect(
-    host="localhost",
-    dbname="classicmodels",
-    user="postgres",
-    password="postgres",   # replace with your own credentials
-)
-conn.autocommit = False  # psycopg2 defaults to this; set explicitly for clarity
+## Step 28: Simulate a lost update at `READ COMMITTED` and verify that it is prevented at `REPEATABLE READ`
 
-cur = conn.cursor()
+Create two sessions via `psql`, both using the `siwaka_dishes_app_runtime` account:
 
-try:
-    cur.execute("SELECT MAX(ordernumber) + 1 FROM orders;")
-    order_number = cur.fetchone()[0]
-
-    cur.execute(
-        """
-        INSERT INTO orders (ordernumber, orderdate, requireddate, shippeddate, status, customernumber)
-        VALUES (%s, CURRENT_DATE, CURRENT_DATE + INTERVAL '3 days',
-                CURRENT_DATE + INTERVAL '2 days', 'In Process', 145);
-        """,
-        (order_number,),
-    )
-
-    cur.execute("SAVEPOINT before_product_1;")
-    cur.execute(
-        """
-        INSERT INTO orderdetails (ordernumber, productcode, quantityordered, priceeach, orderlinenumber)
-        VALUES (%s, 'S18_1749', 2724, 136.00, 1);
-        """,
-        (order_number,),
-    )
-    cur.execute("UPDATE products SET quantityinstock = quantityinstock - 2724 WHERE productcode = 'S18_1749';")
-
-    cur.execute("SAVEPOINT before_product_2;")
-    cur.execute(
-        """
-        INSERT INTO orderdetails (ordernumber, productcode, quantityordered, priceeach, orderlinenumber)
-        VALUES (%s, 'S18_2248', 540, 55.09, 2);
-        """,
-        (order_number,),
-    )
-    cur.execute("UPDATE products SET quantityinstock = quantityinstock - 540 WHERE productcode = 'S18_2248';")
-
-    # Simulate the scanning error and roll back only the second product
-    cur.execute("ROLLBACK TO SAVEPOINT before_product_2;")
-
-    cur.execute("SAVEPOINT before_product_3;")
-    cur.execute(
-        """
-        INSERT INTO orderdetails (ordernumber, productcode, quantityordered, priceeach, orderlinenumber)
-        VALUES (%s, 'S12_1099', 68, 95.34, 3);
-        """,
-        (order_number,),
-    )
-    cur.execute("UPDATE products SET quantityinstock = quantityinstock - 68 WHERE productcode = 'S12_1099';")
-
-    cur.execute(
-        """
-        INSERT INTO payments (customernumber, checknumber, paymentdate, amount)
-        VALUES (145, 'JM555299', CURRENT_DATE, 300000);
-        """
-    )
-
-    conn.commit()
-    print("Transaction committed. Order number:", order_number)
-
-except Exception as exc:
-    conn.rollback()
-    print("Transaction rolled back due to:", exc)
-
-finally:
-    cur.close()
-    conn.close()
+```shell
+psql -U siwaka_dishes_app_runtime -h localhost -W -d siwaka_dishes
 ```
 
-Install the driver first if needed: `pip install psycopg2-binary`.
+The first session will be used to simulate a long-running transaction that reads a value, sleeps for a few seconds, and then writes a new value based on the original read. The second session will read the same value and write a new value before the first session commits.
 
-## Step 20: See a lost update actually happen and get prevented (bonus, for discussion)
+The PostgreSQL isolation table presented earlier claimed that the `quantityinstock` **read-then-write** pattern used throughout this lab is vulnerable to a lost update at `READ COMMITTED`, and protected at `REPEATABLE READ`. This was verified directly rather than only asserted. To reproduce it, run these two sessions with roughly a one-second gap between starting them:
 
-Step 4's isolation table claimed that the `quantityinstock` read-then-write pattern used throughout this lab is vulnerable to a lost update at `READ COMMITTED`, and protected at `REPEATABLE READ`. This was verified directly rather than only asserted. To reproduce it, reset the seed data, then run these two sessions with roughly a one-second gap between starting them:
+**Session A**:
 
-**Session A** (`session_a.sql`):
 ```sql
-BEGIN ISOLATION LEVEL REPEATABLE READ;
-SELECT quantityinstock FROM products WHERE productcode='S18_1749';
-SELECT pg_sleep(3);
-UPDATE products SET quantityinstock = quantityinstock - 5 WHERE productcode='S18_1749';
-COMMIT;
-```
-
-**Session B** (`session_b.sql`), started about one second after Session A:
-```sql
+-- Session A
 BEGIN;
-UPDATE products SET quantityinstock = quantityinstock - 10 WHERE productcode='S18_1749';
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SELECT quantity_in_stock FROM product WHERE product_code='P007'; \gset  
+
+SELECT pg_sleep(15);
+
+-- Start executing Session B after the previous command
+UPDATE product SET quantity_in_stock = :quantity_in_stock - 5 WHERE product_code='P007';
+COMMIT;
+-- Go back to Session B after the previous command
+```
+
+**Session B**, started about one second after Session A:
+
+```sql
+-- Session B, started ~1 second after Session A
+BEGIN;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SELECT quantity_in_stock FROM product WHERE product_code='P007'; \gset  
+
+-- Go back to Session A after the previous command
+UPDATE product SET quantity_in_stock = :quantity_in_stock - 10 WHERE product_code='P007';
 COMMIT;
 ```
 
-Observed result: Session B commits normally, but Session A's `UPDATE` fails with `ERROR: could not serialize access due to concurrent update`, and its transaction rolls back — PostgreSQL detects that the row changed underneath Session A's snapshot and refuses to let it silently overwrite Session B's change. Re-run the same pair of sessions with `BEGIN` alone (default `READ COMMITTED`) instead of `BEGIN ISOLATION LEVEL REPEATABLE READ`, and Session A's `UPDATE` succeeds instead of failing — quietly discarding Session B's decrement. This is a good discussion prompt for why the isolation level chosen for a transaction is a real design decision, not boilerplate.
+Results:
+
+```sql
+SELECT quantity_in_stock FROM product WHERE product_code='P007';
+```
+
+**Observed result:** Under `READ COMMITTED`, Session A commits normally, and Session B's `UPDATE` also succeeds — but because Session B's `UPDATE` uses the stock value it read a few seconds earlier, its write silently overwrites Session A's committed decrement. The final `quantityinstock` reflects only Session B's `-10`; Session A's `-5` is lost, **with no error and no warning.** 
+
+Re-run the same pair of sessions with `REPEATABLE READ` instead, and the outcome reverses: Session B's `UPDATE` now fails with `ERROR: could not serialize access due to concurrent update`, and its transaction rolls back. PostgreSQL detects that the row changed underneath Session B's snapshot and refuses to let it silently overwrite Session A's change, **forcing the application to retry rather than lose data**.
+
+**Session A**:
+
+```sql
+-- Session A
+BEGIN;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SELECT quantity_in_stock FROM product WHERE product_code='P007'; \gset  
+
+SELECT pg_sleep(15);
+
+-- Start executing Session B after the previous command
+UPDATE product SET quantity_in_stock = :quantity_in_stock - 5 WHERE product_code='P007';
+COMMIT;
+-- Go back to Session B after the previous command
+```
+
+**Session B**, started about one second after Session A:
+
+```sql
+-- Session B, started ~1 second after Session A
+BEGIN;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SELECT quantity_in_stock FROM product WHERE product_code='P007'; \gset  
+
+-- Go back to Session A after the previous command
+UPDATE product SET quantity_in_stock = :quantity_in_stock - 10 WHERE product_code='P007';
+COMMIT;
+```
+
+Results:
+
+```sql
+SELECT quantity_in_stock FROM product WHERE product_code='P007';
+```
+
+>**Class Discussion:** Discuss why the isolation level chosen for a transaction is a design decision, not boilerplate (i.e., it is not always best to use the strictest isolation level). Consider the trade-offs between performance and data integrity, and how different isolation levels can affect concurrent transactions in a multi-user environment.
+
+>**Trade-Off:** Stricter isolation levels prevent more anomalies but do so by increasing the rate of blocking, retries, and serialization failures under concurrent load.
 
 ---
 
@@ -1203,13 +1194,13 @@ Observed result: Session B commits normally, but Session A's `UPDATE` fails with
 
 In addition to the completed practical steps above:
 
-(i) Create a flowchart that can be used to understand the transaction.
+(i) Create a flowchart that can be used to understand the general database transaction.
 
-(ii) Write pseudocode that can be used to understand the transaction.
+(ii) Write pseudocode that can be used to understand the general database transaction.
 
-(iii) Suppose the sales department accepts payments in installments but needs a report showing which orders have not been paid in full, and the balance remaining, so that it can follow up with clients who still owe the business money. Explain what can be done to improve the database design so that such a report can be obtained.
+(iii) Suppose the sales department accepts payments in installments but needs a report showing which orders have not been paid in full, and the balance remaining. This is so that it can follow up with clients who still owe the business money. Write an SQL query that can be used to generate this report.
 
-Submit your answer according to your course's submission instructions.
+Submit your answer according to the submission instructions.
 
 ---
 
