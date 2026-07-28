@@ -21,7 +21,7 @@ By the end of this lab, you will be able to:
 | 1 | PostgreSQL Server (==18)                       | Installed and running in your Ubuntu Server Virtual Machine (VM)     |
 | 2 | Secure Shell (SSH)                             | SSH access is required for connecting to the VM                      |
 | 3 | `psql`                                         | A PostgreSQL client that ships with the PostgreSQL server by default |
-| 4 | Python 3 and `psycopg2` (or `psycopg2-binary`) | Required for embedding SQL in Python                                 |
+| 4 | Python 3 and `psycopg2` (or `psycopg2-binary`) | Required for embedding SQL in Python. Click here for installation instructions (to be installed in your laptop, not in the VM): [0_admin_instructions/1_instructions_for_python_installation.md](0_admin_instructions/1_instructions_for_python_installation.md)                                 |
 | 5 | Code Editors and IDEs: VS Code and PyCharm     | We will use both VS Code and PyCharm                                 |
 | 6 | PGAdmin4                                       | If you choose to connect from your laptop over the network           |
 
