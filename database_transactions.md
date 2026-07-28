@@ -397,27 +397,27 @@ An alternative (which we **DO NOT** use in this lab) is to override the system-g
 
 ```sql
 INSERT INTO
-	public.customer_order
+    public.customer_order
     OVERRIDING SYSTEM VALUE
     (
-		order_number,
-		order_date,
-		required_date,
-		dispatch_date,
-		order_status_id,
-		customer_number,
-		branch_code
-	)
+        order_number,
+        order_date,
+        required_date,
+        dispatch_date,
+        order_status_id,
+        customer_number,
+        branch_code
+    )
 VALUES
-	(
-		:order_number,
-		CURRENT_TIMESTAMP,
-		CURRENT_TIMESTAMP + INTERVAL '1 hour',
-		CURRENT_TIMESTAMP + INTERVAL '45 minutes',
-		3,
-		264,
-		16
-	);
+    (
+        :order_number,
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP + INTERVAL '1 hour',
+        CURRENT_TIMESTAMP + INTERVAL '45 minutes',
+        3,
+        264,
+        16
+    );
 ```
 
 ## Step 10: Create the first SAVEPOINT before product 1 is inserted
@@ -750,8 +750,6 @@ A Point-of-Sale (POS) system can be used to format the receipt appropriately. Ty
 
 ![receipt sections](/assets/images/receipt_sections.png)
 
-*Source: Microsoft Copilot*
-
 ---
 
 ## Step 20: Open a session in `psql` using the `postgres` account
@@ -948,6 +946,7 @@ Expected result:
  3min
 (1 row)
 ```
+
 You can also confirm the source of the parameter value. This is useful for distinguishing a config-file setting from a role-level or database-level overrides applied on top of it:
 
 ```sql
@@ -1190,7 +1189,7 @@ SELECT quantity_in_stock FROM product WHERE product_code='P007';
 
 ---
 
-# Lab Submission Requirements
+## Lab Submission Requirements
 
 In addition to the completed practical steps above:
 
@@ -1204,7 +1203,7 @@ Submit your answer according to the submission instructions.
 
 ---
 
-# References
+## References
 
 Elmasri, R., & Navathe, S., B. (2016). Chapter 20: Database Transactions. In *Fundamentals of Database Systems* (7th ed., pp. 745–779). Pearson Education, Inc.
 
