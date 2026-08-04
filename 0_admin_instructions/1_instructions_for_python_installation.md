@@ -17,7 +17,9 @@ Select the following options (if available):
 Under advanced options:
 
 - **Enable** 'Install Python for all users', 'Create shortcuts for installed applications', 'Add Python to environment variables', 'Precompile standard library'
-- Choose a clear path, preferably one without spaces, example, `C:\Python312\` instead of `C:\Program Files\Python312`
+- **[IMPORTANT]** Choose a clear path, preferably one without spaces, example:  
+  `C:\Python312\` **instead of** `C:\Program Files\Python312`
+
 ![Screenshot 3](https://raw.githubusercontent.com/course-files/classlab/refs/heads/main/assets/images/PythonForWindows-3.png)
 
 ## <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/linux/linux-original.svg" width="40" /> Install Python in Linux

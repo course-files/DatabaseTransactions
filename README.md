@@ -102,4 +102,4 @@ Refer to the end of the file below for more details:
 
 Refer to the file below for more details:
 
-- [Teardown Instructions](0_admin_instructions/2_instructions_for_project_cleanup.md)
+- [Teardown Instructions](0_admin_instructions/2_instructions_for_project_teardown.md)

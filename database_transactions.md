@@ -752,7 +752,7 @@ A Point-of-Sale (POS) system can be used to format the receipt appropriately. Ty
 
 ---
 
-## Step 20: Open a session in `psql` using the `postgres` account
+## Step 20: Open a session via `psql` using the `postgres` account
 
 ```shell
 psql -U postgres -h localhost -W -d siwaka_dishes
@@ -774,7 +774,11 @@ Open a new, separate terminal window (do not close or reuse the first):
 
 ```shell
 ssh -p 22 student@192.168.33.3
+```
 
+Then once logged in via SSH, connect to the PostgreSQL server using the `siwaka_dishes_analytics` account:
+
+```shell
 psql -U siwaka_dishes_analytics -h localhost -W -d siwaka_dishes
 ```
 
@@ -784,7 +788,7 @@ Confirm you are logged in as the correct user and connected to the correct datab
 SELECT current_user, current_database();
 ```
 
-## Step 22: Start a long-running transaction in the second session
+## Step 22: Start a long-running transaction in the second session (`siwaka_dishes_analytics`)
 
 `pg_sleep(120)` pauses the backend process executing it for 120 seconds, then returns with no result rows of consequence (a `void` return type). It does not consume CPU while sleeping; the backend simply waits.
 
@@ -862,7 +866,7 @@ Both functions require the calling role to either own the target session or have
 
 ### Step 25.1: Locate the configuration file
 
-We can confirm the path to the configuration file by asking PostgreSQL directly through `psql`:
+As done earlier, we can confirm the path to the configuration file by asking PostgreSQL directly through `psql`:
 
 ```sql
 SHOW config_file;
@@ -904,7 +908,7 @@ Use the vim search function to jump directly to the line rather than scrolling m
 /idle_in_transaction_session_timeout
 ```
 
-Press `Enter` then type `i` to enter insert mode. Remove the `#` and change the value:
+Press `Enter` then type `i` to enter insert mode. Remove the `#` and change the value to:
 
 `idle_in_transaction_session_timeout = 180000`
 
@@ -959,7 +963,7 @@ WHERE name = 'idle_in_transaction_session_timeout';
 
 ### Step 25.6: Verify with a real transaction
 
-We then repeat the two-session exercise from the previous steps, but this time, we use an idle transaction rather than `pg_sleep` for a long-running query.:
+We then repeat the two-session exercise from the previous steps, but this time, we use an idle transaction rather than `pg_sleep` for a long-running query:
 
 ```sql
 BEGIN;
@@ -1075,7 +1079,7 @@ Since `statement_timeout` was set to 1 minute in the previous step, this stateme
 
 Unlike `idle_in_transaction_session_timeout`, which terminates the entire session (`FATAL`, connection closed), `statement_timeout` only cancels the offending statement and returns an ERROR; the session and connection remain open, and the user can immediately issue a new query in the same session.
 
-You can confirm this again by running:
+You can confirm this again by running a transaction that has an operation that runs for 2 minutes, yet the statement timeout was set to 1 minute. The expected result is that the statement will be canceled after 1 minute, and the session will remain alive for further queries:
 
 ```sql
 BEGIN;
@@ -1093,7 +1097,7 @@ SELECT 1; -- this should succeed, confirming the session is still alive
 
 ## Step 27: Embedding the transaction in a Python backend
 
-Refer to the files in the `0_admin_instructions` folder followed by the [pos_transaction_demo.py](pos_transaction_demo.py) file for a demonstration of how to embed the transaction in a Python backend. The code is annotated with comments to explain most of the steps.
+Refer to the files in the [0_admin_instructions/](0_admin_instructions/) folder followed by the [pos_transaction_demo.py](pos_transaction_demo.py) file for a demonstration of how to embed the transaction in a Python backend. The code is annotated with comments to explain most of the steps.
 
 ---
 
@@ -1105,9 +1109,11 @@ Create two sessions via `psql`, both using the `siwaka_dishes_app_runtime` accou
 psql -U siwaka_dishes_app_runtime -h localhost -W -d siwaka_dishes
 ```
 
-The first session will be used to simulate a long-running transaction that reads a value, sleeps for a few seconds, and then writes a new value based on the original read. The second session will read the same value and write a new value before the first session commits.
+The first session will be used to simulate a long-running transaction that reads a value, sleeps for a few seconds, and then writes a new value based on the original value it read. The second session will read the same original value and write a new value and commit it before the first session commits.
 
-The PostgreSQL isolation table presented earlier claimed that the `quantityinstock` **read-then-write** pattern used throughout this lab is vulnerable to a lost update at `READ COMMITTED`, and protected at `REPEATABLE READ`. This was verified directly rather than only asserted. To reproduce it, run these two sessions with roughly a one-second gap between starting them:
+![concurrency_problems](/assets/images/concurrency_problems.png)
+
+The PostgreSQL isolation table presented earlier claimed that the `quantityinstock` **read-then-write** pattern used throughout this lab is vulnerable to a lost update at `READ COMMITTED`, but protected at `REPEATABLE READ`. This was verified directly rather than only asserted. To reproduce it, run these two sessions with roughly a one-second gap between starting them:
 
 **Session A**:
 
